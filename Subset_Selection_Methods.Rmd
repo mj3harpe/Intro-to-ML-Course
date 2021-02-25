@@ -1,0 +1,142 @@
+---
+title: "MSCI 446 - Assignment 2 - Question 3"
+author: "M. Harper, H. Gomma, K. Morris"
+date: "09/02/2021"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Include Packages
+
+```{r, warning=F, message=F}
+library('tidyverse')
+library('caret')
+library('gridExtra')
+library('plotly')
+library('ISLR')
+library('AmesHousing')
+library('leaps')
+
+theme_set(theme_classic())
+```
+
+## Import Dataset
+```{r}
+ames <- AmesHousing::make_ames()
+numericVars <- ames %>% summarize_all(is.numeric) %>% unlist()
+ames <- ames[, numericVars]
+head(ames)
+```
+
+## Forward Selection
+
+```{r}
+NumCols <- ncol(ames)
+res <- regsubsets(Sale_Price ~., data=ames, method='forward', nvmax=NumCols)
+res.summary <- summary(res)
+
+res_rss <- c(res.summary$rss)
+x <- c(1:33)
+
+df_res_rss <- data.frame(numPredictors = x, RSS = res_rss)
+
+ggplot(data=df_res_rss) +
+  geom_line(aes(x=numPredictors, y=RSS), colour='firebrick')+
+  ggtitle('Model RSS vs. Number of Used Predictors')
+
+```
+
+```{r}
+which.min(res.summary$rss)
+```
+It appears as though the number of predictors that were used in the best model (i.e., with the lowest rss) was 33 predictors.
+
+```{r}
+coef(res, 33)
+```
+Above shows each of the 33 predictor variables used and their respective linear model coefficients.
+
+__Repeat Using BIC Metric__
+
+```{r}
+res_bic <- c(res.summary$bic)
+x <- c(1:33)
+
+df_res_bic <- data.frame(numPredictors = x, RSS = res_bic)
+
+ggplot(data=df_res_bic) +
+  geom_line(aes(x=x, y=res_bic), colour='steelblue')+
+  ggtitle('Model BIC vs. Number of Used Predictors')
+
+```
+
+```{r}
+which.min(res.summary$bic)
+```
+It appears as though the model that the best model that utilized 21 predictors produced the lowest BIC (bayesian information criterion).
+
+```{r}
+coef(res, 21)
+```
+
+The corresponding predictors and their coefficients of the 21 variable model is shown above.
+
+## Backward Selection
+
+```{r}
+bkwd <- regsubsets(data=ames, Sale_Price~., method='backward', nvmax=NumCols)
+bkwd.summary <- summary(bkwd)
+
+bkwd_rss <- c(bkwd.summary$rss)
+x = c(1:(ncol(ames)-2))
+
+df_bkwd_rss <- data.frame(numPredictors = x, RSS = bkwd_rss)
+
+ggplot(data=df_bkwd_rss)+
+  geom_line(aes(x=numPredictors, y=RSS), colour='firebrick')
+
+```
+```{r}
+which.min(bkwd.summary$rss)
+```
+It appears as though when using _backward selection_, the model that produced the lowest RSS was one that utilized 33 predictor variables, just as _forward selection_ had.
+
+```{r}
+names(coef(bkwd,33)) == names(coef(res,33))
+```
+
+It appears as though many of the same predictor variables are being used as well, with a few exceptions.
+
+```{r}
+coef(bkwd, 33)
+```
+Above shows each of the 33 predictor variables used and their respective linear model coefficients.
+
+__Repeat Using BIC Metric__
+
+```{r}
+bkwd_bic <- c(bkwd.summary$bic)
+x <- c(1:33)
+
+df_bkwd_bic <- data.frame(numPredictors = x, RSS = bkwd_bic)
+
+ggplot(data=df_bkwd_bic) +
+  geom_line(aes(x=x, y=res_bic), colour='firebrick')+
+  ggtitle('Model BIC vs. Number of Used Predictors')
+
+```
+```{r}
+which.min(bkwd.summary$bic)
+```
+It appears as though when using _backward selection_ subset selection and the BIC metric, the model that utilized 22 predictors was the best. Whereas when we used _forward selection_, the best model used 21 predictors.
+
+```{r}
+coef(bkwd, 22)
+```
+
+The predictors and their respective coefficients of the 22 variable model is summarized above.
+
+

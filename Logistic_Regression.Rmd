@@ -1,0 +1,147 @@
+---
+title: "MSCI 446 - Assignment 2 - Question 2"
+author: "M. Harper, H. Gomma, K. Morris"
+date: "22/02/2021"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Include Packages
+
+```{r, warning=F, message=F}
+library('tidyverse')
+library('caret')
+library('gridExtra')
+library('plotly')
+library('ISLR')
+library('glmnet')
+
+theme_set(theme_classic())
+```
+
+## 2.1 Train / Test Split
+
+```{r}
+health <- read.csv('mental_health.csv')[,-1]
+head(health)
+
+set.seed(156)
+train_inds <- sample(1:nrow(health), floor(0.8*nrow(health)))
+train_set <-health[train_inds, ]
+test_set <- health[-train_inds, ]
+
+cat('Size of train_set: ',nrow(train_set), 'Size of test_set: ',nrow(test_set))
+```
+## 2.2 Fit Models
+
+```{r}
+# x <- model.matrix(IsMentalHealthRelated ~ ., health) [,-1]
+# y <- health$IsMentalHealthRelated
+```
+
+```{r}
+x.train <- model.matrix(IsMentalHealthRelated ~., train_set)[,-1]
+y.train <- train_set$IsMentalHealthRelated
+
+#Fit Logistic Regression Model without Regularization on train_set
+fit.logreg <- glmnet(x=x.train,y=y.train, family='binomial')
+
+```
+
+Find optimal value of lambda (using L1 Regularization)
+```{r}
+cv.fit.l1 <- cv.glmnet(x=x.train, y=y.train, 
+                       family='binomial', alpha=1, nfolds=10)
+cv.fit.l1$lambda.min
+
+```
+Using L1 regularization parameters, it appears as though the optimal __lambda__ value is 0.00004332.
+```{r}
+#Fit logistic Regression with L1 regularization using above lambda value
+fit.l1 <- glmnet(x=x.train, y=y.train, 
+                 family='binomial', alpha=1, lambda=0.00004332)
+
+```
+
+Find optimal value of lambda (using L2 Regularization)
+```{r}
+cv.fit.l2 <- cv.glmnet(x=x.train, y=y.train, 
+                       family='binomial', alpha=0, nfolds=10)
+cv.fit.l2$lambda.min
+```
+Using L2 regularization parameters, it appears as though the optimal __lambda__ value is 0.04332041
+
+```{r}
+#Fit logistic regression with L2 regularization and above lambda value
+fit.l2 <- glmnet(x=x.train, y=y.train, 
+                 family='binomial', alpha=0, lambda=0.04332041)
+
+```
+
+
+## 2.3 Compare Performances
+
+```{r}
+x.test <- model.matrix(IsMentalHealthRelated~., test_set)[,-1]
+y.test <- test_set$IsMentalHealthRelated
+
+# Model performance without regularization
+fit.logreg.probs <- predict(fit.logreg, newx = x.test, type='response')
+fit.logreg.preds <- ifelse(fit.logreg.probs>=0.5, 1, 0)
+fit.logreg.performance <- mean(fit.logreg.preds == y.test) * 100
+
+# Model performance with regularization (L1)
+fit.l1.probs <- predict(fit.l1, newx = x.test, type='response')
+fit.l1.preds <- ifelse(fit.l1.probs>=0.5, 1, 0)
+fit.l1.performance <- mean(fit.l1.preds == y.test) * 100
+
+#Model performance with regularization (L2)
+fit.l2.probs <- predict(fit.l2, newx = x.test, type='response')
+fit.l2.preds <- ifelse(fit.l2.probs>=0.5, 1, 0)
+fit.l2.performance <- mean(fit.l2.preds == y.test) * 100
+
+model_types <- c('no regularization', 'L1 Regularization', 'L2 Regularization')
+performances <- c(fit.logreg.performance, fit.l1.performance, 
+                  fit.l2.performance)
+
+data.frame(Classification_Model = model_types, Accuaracy=performances)
+
+```
+
+It appears as though the most accurate model was the one that used L1 Regularization (Lasso Regression). Closely followed by the model that did not use regularization, and lastly, the worst performing model was that one that utilized L2 regularization (Ridge Regression).
+
+
+## 2.4 Interpret the Models
+
+```{r}
+#L1 Model
+l1.coef.summary <- sort(coef(fit.l1)[,1], decreasing=TRUE)
+head(l1.coef.summary, 5)
+tail(l1.coef.summary, 5)
+```
+
+For the model fitted it L1 regularization, it appears as though the intercept coefficient has the largest estimation, followed by _council_, _term_, _anxiety_ and _university_.
+
+The smallest coefficient estimations are _muscle_, _advance_, _shoulder_, _workout_ and _fitness_.
+
+```{r}
+#L2 Model
+l2.coef.summary <- sort(coef(fit.l2)[,1], decreasing=TRUE)
+head(l2.coef.summary, 5)
+tail(l2.coef.summary, 5)
+```
+
+For the model fitted it L2 regularization, it appears as though the intercept coefficient has the largest estimation, followed by _mental.health_, _worry_, _fine_ and _service_.
+
+The smallest coefficient estimations are _diet_, _body_, _train_, _hi_ and _routine_.
+
+L1 regularization (lasso regression) is the method that tends to zero many coefficients, and L2 regularization (ridge regression) tends to shrink all the coefficients but does not zero any.
+
+```{r}
+
+```
+
+
