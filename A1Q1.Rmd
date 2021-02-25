@@ -1,0 +1,320 @@
+---
+title: "MSCI446 - Assignment 1 - Question 1"
+author: "H. Gomma, K. Morris, M. Harper"
+date: "05/02/2021"
+output:
+  pdf_document: default
+  html_document:
+    df_print: paged
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Question 1: Linear Regression
+
+The first thing we will do is import and read the dataset and display the top 5 
+rows using the head() function to better understand the starting point in which
+we are working with.
+```{r cars}
+data <- read.csv('spotify_songs.csv')
+names(data)
+```
+For this question, we will take the output variable to be __Y = track_popularity (numeric)__
+with inputs __X:__
+
+- __danceability (numeric)__
+- __tempo (numeric)__
+- __energy (numeric)__
+- __playlist_genre (categorical)__
+
+\newpage
+
+## 1.1 Basic Insights
+
+Determining the min/max values and median of the output variable __Y = 'track_popularity'__
+```{r}
+cols <- c('track_popularity','danceability', 'energy', 'tempo', 'playlist_genre')
+data.short <- data[,cols]
+
+cat('Min Track Popularity: ', min(data.short$track_popularity), '\n')
+cat('Min Track Popularity: ',max(data.short$track_popularity), '\n')
+cat('Median track_popularity: ', median(data.short$track_popularity))
+
+```
+
+Summarizing the dataset characteristics based on the various genre classes:
+```{r}
+library('tidyverse')
+data.short %>%
+  group_by(playlist_genre) %>%
+  summarize(Avg_Popularity = mean(track_popularity),
+            Median_Popularity = median(track_popularity))
+```
+\newpage
+
+### 1.2: Visualizing the Data
+
+__Selected Numeric Input Variables:__
+
+- energy(numeric/continuous)
+- tempo (numeric/continuous)
+- duration_ms(numeric/continuous)
+
+```{r}
+library('gridExtra')
+theme_set(theme_minimal())
+
+g1 <- ggplot(data.short, aes(x=energy)) +
+  geom_histogram(colour='white')
+g2 <- ggplot(data.short, aes(x=tempo)) +
+  geom_histogram(colour='white')
+g3 <- ggplot(data.short, aes(x=danceability)) +
+  geom_histogram(colour='white')
+
+grid.arrange(g1,g2,g3, ncol=2)
+```
+From the plots above, it appears as though the _energy_ and _danceability_ distributions are left skewed, _energy_ being slightly more so than _danceability_. All of the above distributions appear to be normal in that they all follow a _bell curve_ shape indicating that they are roughly centered around their data means. 
+
+
+We will now group each of the tracks in the dataset by it's _playlist_genre_ categorical value, and create a boxplot to show the inter-quartile range (IQR) and means of the _track_popularity_ for each genre.
+```{r}
+data.short$playlist_genre <- as.factor(data.short$playlist_genre)
+
+ggplot(data = data.short)+ 
+  geom_boxplot(aes(x=track_popularity, y=playlist_genre, colour=playlist_genre))
+  
+```
+At first glance, it is observed that the __pop__ genre has the highest mean track popularity rating of approximately 52-55. Conversely, the __edm__ genre has the with the lowest mean track popularity rating of approximately 30-33.
+
+
+We will now investigate the relationship between one possible numeric output variable, __Y = track_popularity__, and one of the chosen numeric input variables __X = danceability__
+
+```{r}
+theme_set(theme_minimal())
+ggplot(data=data.short)+
+  geom_point(aes(x=danceability, y=track_popularity), size=0.5, 
+             colour='steelblue')
+
+```
+There does not seem to be a noticeable relationship (i.e. linear) between the data. With the quantity of data it is difficult to make out any visible relationships as the scatter plot appears as a large blob with multiple outputs for every input. There may not be any relationship between _danceability_ and _track_popularity_. In the next part of the assignment, we will quantitatively assess the strength of the relationship between the two variables listed above.
+
+
+\newpage
+
+## 1.3 Regression Using Entire Dataset
+
+### 1. Using one input and one numeric output
+
+__Input Variable:__ X = danceability
+__Output Variable:__ Y = track_popularity
+
+Simple linear reqression will be used. Because there is one input and one output, the regression line will follow the form:
+$$Y_i \sim \beta_0 + \beta_1 X_i$$
+Where $Y_i$ is the dependent / output variable (track_popularity), and $X_i$ is the independent variable (danceability). The Code below will fit the line above and approximate values for $\beta_0$ and $\beta_1$.
+
+```{r}
+fit1 = lm(data = data.short, track_popularity ~ danceability)
+coef(fit1)
+```
+
+From the model summary of __fit1__ above, the intercept, $\beta_0$, is approximately 35.18, and the coeffienct $\beta_1$ is approximated to be 11.15.
+Therefore the linear equation is predicted to be:
+$$Y_i \sim 35.18 + 11.15 X_i$$
+Plotting the data and the predicted linear model:
+```{r}
+pred1 = predict(fit1)
+
+ggplot(data=data.short, aes(x=danceability))+
+  geom_point(aes(y=track_popularity), size=0.5, colour='steelblue')+
+  geom_line(aes(y=pred1), colour='red', size=0.5)
+
+```
+\newpage
+```{r}
+summary(fit1)
+```
+The model summary _fit1_ suggest that it is _statistically significant_. This is observed by _p-value_ that is basically zero, indicating that the null hypothesis, intercept only model, $Y_0: \beta_0 = 0$, can be confidently rejected. However, the _p-value's_ for the slope and intercepts are insignificant and suggest that the probability that the coefficient of the _danceability_ term is zero is also negligible. Therefore _danceability_ plays an important role in this model.
+
+For this model, $R^2 = 0.0042$, which is significantly low. $R^2$ is known as the _coefficient of determination_ and is an indication of how useful the predictor variable, in this case _danceability_, is at predicting the output variable, _track_popularity_. Therefore, for this model, with significantly low $R^2$ indicates that our input variable is not good at explaining the output variable.
+
+__Root Mean Squared Error (RMSE) of fit1__
+```{r}
+rmse1 <- sigma(fit1)
+rmse1
+```
+\newpage
+
+### 2. Using all numeric inputs (danceability, energy, tempo)
+
+Fitting the linear model to three numeric input values will yield the form: $Y_i \sim \beta_0 + \beta_1 X_1 + \beta_2 X_2 + \beta_3 X_3$
+where $X_1 = danceability_i$, $X_2 = energy_i$, and $X_3 = tempo_i$
+
+```{r}
+fit2 = lm(data = data.short, track_popularity ~ danceability + energy + tempo)
+coef(fit2)
+```
+From __fit2__, the linear model is represented as:
+
+$$Y_i \sim 43.68 + 10.25 danceability_i - 14.81 energy_i + 0.02 tempo_i $$
+
+Plotting the data and the predicted linear model:
+```{r}
+pred2 = predict(fit2)
+
+ggplot(data=data.short, aes(x=danceability))+
+  geom_point(aes(y=track_popularity), size=0.5, colour='steelblue')+
+  geom_line(aes(y=pred2), colour='red', size=0.5)
+
+```
+\newpage
+```{r}
+summary(fit2)
+```
+The model summary of _fit2_ suggest that it is _statistically significant_. This is observed by _p-value_ that is basically zero, indicating that the null hypothesis, intercept only model, $Y_0: \beta_0 = 0$, can be confidently rejected. Similar to the previous model, the _p_value's_ for danceability and energy suggest they are important to the model. Tempo is not as impactful for this model as the other two variables, although it's p-value is still negligibly small suggesting that it does contribute to the models accuracy.
+
+With model _fit2_, the $R^2$ value increase from 0.0042 to 0.015 which is still significantly low. This suggests that increasing the number of input variables has had a fairly significant effect on predicting the output variable _track_popularity_, when compared to the single input variable model, _fit1_. However, here the input variables themselves are still poor predictor variables nonetheless.
+
+__Root Mean Squared Error (RMSE) of fit2__
+```{r}
+rmse2 <- sigma(fit2)
+rmse2
+```
+\newpage
+### 3. Adding and interaction between a categorical input (playlist_genre) and one numeric input (energy)
+
+```{r}
+fit3 = lm(data = data.short, track_popularity ~ danceability + energy + tempo + playlist_genre + energy:playlist_genre)
+coef(fit3)
+```
+
+From __fit3__, the linear model is represented as:
+
+$$Y_i \sim 56.14 + 11.93 danceability_i - 35.12 energy_i + 0.02 tempo_i - 3.74 genre_i + 5.73 energy:genre_i$$
+
+Plotting the data and the predicted linear model:
+```{r}
+pred3 = predict(fit3)
+
+ggplot(data=data.short, aes(x=danceability))+
+  geom_point(aes(y=track_popularity), size=0.5, colour='steelblue')+
+  geom_line(aes(y=pred3), colour='red', size=0.5)
+
+```
+\newpage
+```{r}
+summary(fit3)
+```
+The model summary _fit3_ suggest that it is _statistically significant_. This is observed by _p-value_ that is basically zero, indicating that the null hypothesis, intercept only model, $Y_0: \beta_0 = 0$, can be confidently rejected. We can see from the p-value column that there is a statistically significant relationship between the tracks energy rating and its genre. With the exception of _energy:playlist_genrelatin_, with a p-value of approximately 0.138. This suggests that there is a 13.8% probability that the coefficient for this relationship is the null hypothesis, equal to 0.
+
+
+We notice that adding the interaction between the _playlist_genre_ and _energy_, the $R^2$ value increases from 0.015 to 0.021. This small value suggests that the predictor variables and the interaction are still poor predictors of the output variable _track_popularity_. However, The increase from the previous models _fit1_ and _fit2_ indicate that the combination of additional variables and variable interaction has contributed an improvement to the existing model.
+
+__Root Mean Squared Error (RMSE) of fit3__
+```{r}
+rmse3 <- sigma(fit3)
+rmse3
+```
+\newpage
+### 4. Comparing fit1, fit2 and fit3
+
+```{r}
+models <- c('fit1', 'fit2', 'fit3')
+rmse <- c(rmse1, rmse2, rmse3)
+r2 <- c(0.0042, 0.015, 0.021)
+
+df <- data.frame(models, rmse, r2)
+df
+```
+From the above dataframe, the rmse value decreases and the $R^2$ value increases as we move from _fit1_ to _fit3_. This would suggest that although all three models are poor at predicting the output variable _track_popularity_, __fit3__ is the best of the three. Following this logic, fit2 would be the second best model and fit1 would be the worst of the three. 
+\newpage
+
+## 1.4 Repeat with test/train Datasets
+
+The first step is to split the data in two. We will use a 20/80 test-train ratio as indicated in the assingment. The code below is mostly taken from week 3 tutorial.
+```{r}
+set.seed(156)
+train_size <- floor(0.8 * nrow(data.short))
+train_inds <- sample(1:nrow(data.short), size=train_size)
+test_inds <- setdiff(1:nrow(data.short), train_inds)
+
+train <- data.short[train_inds, ]
+test <- data.short[test_inds, ]
+
+cat('train size: ', nrow(train), 'test size: ', nrow(test))
+```
+Below we will determine 3 models that are identical to the ones determined in 1.3. The models will be fitted using the training data set and tested on the test data set.
+
+- fit4: track_popularity vs. danceability
+- fit5: tracK_popularity vs. danceability, energy, tempo
+- fit6: track_popularity vs. _danceability, energy, tempo_ & an interaction between _energy_ and _playlist_genre_ 
+
+```{r}
+library('gridExtra')
+theme_set(theme_minimal())
+
+#Fit the models using the training data set
+fit4 <- lm(data=train, track_popularity ~ danceability)
+fit5 <- lm(data=train, track_popularity ~ danceability + energy + tempo)
+fit6 <- lm(data=train, track_popularity ~ danceability + energy + tempo 
+           + playlist_genre + energy:playlist_genre)
+
+#Use the models above to predict the track_popularity from the test set
+pred4 <- predict(fit4, newdata = test)
+pred5 <- predict(fit5, newdata = test)
+pred6 <- predict(fit6, newdata = test)
+
+#Create Plots and Display the Models
+g4<-ggplot(test, aes(x=danceability)) +
+      geom_point(aes(y=track_popularity), colour='steelblue', size=0.5)+
+      geom_line(aes(y=pred4), colour='red', size=0.5)
+g5<-ggplot(test, aes(x=danceability)) +
+      geom_point(aes(y=track_popularity), colour='steelblue', size=0.5)+
+      geom_line(aes(y=pred5), colour='red', size=0.5)
+g6<-ggplot(test, aes(x=danceability)) +
+      geom_point(aes(y=track_popularity), colour='steelblue', size=0.5)+
+      geom_line(aes(y=pred6), colour='red', size=0.5)
+
+
+grid.arrange(g4, g5, g6, ncol=2)
+
+```
+\newpage
+
+__Summary of Model Fit4:__
+```{r}
+summary(fit4)
+rmse4 <- sigma(fit4)
+
+```
+_Fit4_ shows a p-value of insignificance and therefore the null hypotheses can be rejected, suggesting that this model is statistically significant. However, the $R^2$ value is equal to 0.0034 which is significantly low. This would suggest that the predictor variable, _danceability_ is not great a predicting the output variable _track_popularity_. 
+\newpage
+
+__Summary of Model Fit5:__
+```{r}
+summary(fit5)
+rmse5 <- sigma(fit5)
+```
+_Fit5_ also shows an insignificant p-value and therefore, like _Fit4_, suggests that the model is statistically significant. For this model that uses three numeric inputs, _danceability_, _energy_ and _tempo_, the $R^2$ value is approximately 0.0141. This is a significant improvement from the model _Fit4_, however still suggests that the use of these three variables is not a good predictor of _track_popularity_.
+\newpage
+
+__Summary of Model Fit6:__
+```{r}
+summary(fit6)
+rmse6 <- sigma(fit6)
+```
+The last model tested, _Fit6_ uses the same 3 input variables as _Fit5_, and includes an interaction between a fourth categorical input, _playlist_genre_. This model improves the $R^2$ value compared to the previous models, however is still negligible and suggests that this combination of inputs still has a poor effect on predicting _track_popularity_. However, the model is still statistically significant and that the null, intercept only hypothesis can be rejected as evidence of the negligibly small p-value.
+\newpage
+
+__Model Comparison (Fit4, Fit5, Fit6)__
+
+```{r}
+models <- c('fit4', 'fit5', 'fit6')
+rmse <- c(rmse4, rmse5, rmse6)
+r2 <- c(0.0034, 0.0141, 0.0195)
+
+df <- data.frame(models, rmse, r2)
+df
+```
+The dataframe above shows essentially identical RMSE values for the three models, however there are small improvements from fit4 through to fit6. The $R^2$ value also follows this same trend. This result would indicate that fit6 is the best of the three at predicting the output variable _track_popularity_. Followed by fit5 and finally fit4. This ranking order matches that of _question 1.3_.

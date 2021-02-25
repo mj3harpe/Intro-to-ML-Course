@@ -1,0 +1,230 @@
+---
+title: "MSCI446 - Assignment 1 - Question 3" 
+author: "H. Gomma, K. Morris, M. Harper"
+date: "05/02/2021"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+
+Now, call `ISLR` library and read the data.
+
+```{r, warning=F, message=F}
+install.packages('ISLR', repos = 'https://rdrr.io/cran/ISLR/')
+library('ISLR')
+head(Auto)
+```
+
+Show Auto dataset.
+```{r, warning=F, message=F}
+head(Auto)
+```
+
+Scatterplot of power vs mpg:
+
+```{r, warning=F, message=F}
+library(ggplot2)
+ggplot(data=Auto)+
+  geom_point(aes(x=horsepower, y=mpg))
+
+```
+From the above plot, the relationship is clearly negative. More horsepower -> less MPG.
+The relationship appears to follow a non-linear curve, possibly second order.
+
+Scatterplot of log(power) vs log(mpg):
+
+```{r, warning=F, message=F}
+ggplot(data=Auto)+
+  geom_point(aes(x=log(horsepower), y=log(mpg)))
+
+```
+The data becomes linear on 
+
+To determine which method of gradient descent is best for this dataset, we look at the size.
+
+```{r, warning=F, message=F}
+nrow(Auto)
+```
+
+Since the Auto dataset has 392 rows, , <type> of gradient descent is recommended based on the lectures.This is implemented below.
+
+```{r, warning=F, message=F}
+GDA <- function(x, y, theta0, alpha = 0.01, epsilon = 1e-8){
+  
+  # Inputs
+  # x      : The input variables (M columns)
+  # y      : Output variables    (1 column)
+  # theta0 : Initial weight vector (M+1 columns)
+  
+  x     <- as.matrix(x)
+  y     <- as.matrix(y) 
+  N     <- nrow(x)
+  i     <- 0
+  theta <- theta0
+  x     <- cbind(1, x) # Adding 1 as first column for intercept
+  
+  cost  <- (1/(2*N)) * t(x %*% theta - y) %*% (x %*% theta - y)
+  delta <- 1
+  # @hossam - adding in this line
+  imprv <- 1
+  print("Starting iterations")
+  while(imprv > epsilon){
+    i <- i + 1
+    grad  <- (t(x) %*% (y-x %*% theta)) # calculate the gradient of the loss
+    theta <- theta + (alpha / N) * grad # adjust theta
+    cost <- append(cost, (1/(2*N)) * t(x %*% theta - y) %*% (x %*% theta - y))
+    imprv <- abs(cost[i+1] - cost[i])
+    if((cost[i+1] - cost[i]) > 0) stop("Cost is increasing. Try reducing alpha.")
+  }
+  print(paste0("Finished in ", i, " iterations"))
+  return(theta)
+}
+```
+
+Plotting logic below with linear line of best fit.
+
+```{r, warning=F, message=F}
+plot_line <- function(theta) {
+  ggplot(Auto, aes(x=log(horsepower),y=log(mpg))) + 
+    geom_point(alpha=.7) + 
+    geom_abline(slope = theta[2], intercept = theta[1], colour='firebrick') + 
+    ggtitle(paste0('int: ', round(theta[1],2), ', slope: ', round(theta[2],2)))
+}
+```
+
+```{r, warning=F, message=F}
+library('ISLR')
+library('tidyverse')
+x <- log(Auto$horsepower)
+y <- log(Auto$mpg)
+theta0 <- c(1,1)
+theta <- GDA(x, y, theta0, alpha = 0.05, epsilon = 1e-5)
+```
+
+```{r, warning=F, message=F}
+plot_line(theta)
+```
+
+Reduce epsilon to 1e-6, set alpha=0.05 run the code
+```{r, warning=F, message=F}
+library('ISLR')
+library('tidyverse')
+x <- log(Auto$horsepower)
+y <- log(Auto$mpg)
+theta0 <- c(1,1)
+theta <- GDA(x, y, theta0, alpha = 0.05, epsilon = 1e-6)
+```
+```{r, warning=F, message=F}
+plot_line(theta)
+```
+The line of best fit tracks the data much better now. Let's keep improving! The improvement is due to more iterations being run, allowing for more optimization of parameters to occur.
+
+Reduce alpha to alpha=0.01
+```{r, warning=F, message=F}
+library('ISLR')
+library('tidyverse')
+x <- log(Auto$horsepower)
+y <- log(Auto$mpg)
+theta0 <- c(1,1)
+theta <- GDA(x, y, theta0, alpha = 0.01, epsilon = 1e-6)
+```
+
+
+```{r, warning=F, message=F}
+plot_line(theta)
+```
+With a more aggressive slope and lower intercept, the previous iteration actually fit the data better based on visual inspection.
+This is likely due to overfitting likely by getting stuck in a local minimum. With alpha too low, escaping local minima can become impossible.
+
+```{r, warning=F, message=F}
+library('ISLR')
+library('tidyverse')
+x <- log(Auto$horsepower)
+y <- log(Auto$mpg)
+theta0 <- c(1,-1)
+theta <- GDA(x, y, theta0, alpha = 0.05, epsilon = 1e-6)
+```
+
+
+
+```{r, warning=F, message=F}
+plot_line(theta)
+```
+
+The line matches that when it was c=(1,1). Why? magnitude is the same?
+
+
+Reduce epsilon to epsilon = 1e-8 and try alpha=0.01
+```{r, warning=F, message=F}
+library('ISLR')
+library('tidyverse')
+x <- log(Auto$horsepower)
+y <- log(Auto$mpg)
+theta0 <- c(1,-1)
+theta <- GDA(x, y, theta0, alpha = 0.01, epsilon = 1e-8)
+```
+
+Alpha is multiplied every iteration to the change factor, while -1 weight only lasts for one (initial) iteration 
+
+```{r, warning=F, message=F}
+plot_line(theta)
+```
+Nicer fit! almost a perfect correlation, since the error tolerance on theta is very low.
+ 
+Reduce epsilon to epsilon = 1e-8 and try alpha=0.05
+```{r, warning=F, message=F}
+library('ISLR')
+library('tidyverse')
+x <- log(Auto$horsepower)
+y <- log(Auto$mpg)
+theta0 <- c(1,-1)
+theta <- GDA(x, y, theta0, alpha = 0.05, epsilon = 1e-8)
+```
+
+
+
+
+```{r, warning=F, message=F}
+plot_line(theta)
+```
+Simlar results to above.changing learning rate makes slope slightly more agressive.
+
+Reduce epsilon to epsilon = 1e-8 and try alpha=0.1
+```{r, warning=F, message=F}
+library('ISLR')
+library('tidyverse')
+x <- log(Auto$horsepower)
+y <- log(Auto$mpg)
+theta0 <- c(1,-1)
+theta <- GDA(x, y, theta0, alpha = 0.09, epsilon = 1e-8)
+```
+
+Doesn't work for learning rate 0.1. Cost goes up instead of down. Changed to 0.09.Opposite of getting stuck, we now overshoot perpetually.
+
+```{r, warning=F, message=F}
+plot_line(theta)
+```
+
+Best fit so far! Fast learning rate, low error tolerance..less opportunity to mess around.
+
+    
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+
+
